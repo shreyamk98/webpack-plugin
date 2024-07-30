@@ -1,4 +1,4 @@
-const MiniCssExtractPlugin = require('./index');
+const KombaiPlugin = require('./index');
 
 function loader(content) {
 	const filePath = this.resourcePath;
@@ -11,19 +11,19 @@ function loader(content) {
 
 	if (
 		this._compilation &&
-		(!this._compilation.metadata || !this._compilation.metadata.hasOwnProperty(MiniCssExtractPlugin.pluginName))
+		(!this._compilation.metadata || !this._compilation.metadata.hasOwnProperty(KombaiPlugin.pluginName))
 	) {
 		this._compilation.metadata = this._compilation.metadata || {
-			[MiniCssExtractPlugin.pluginName]: {},
+			[KombaiPlugin.pluginName]: {},
 		};
 	}
 	// Pass the metadata to the Webpack compilation
 	if (this._compilation) {
-		this._compilation.metadata[MiniCssExtractPlugin.pluginName][filePath] = metadata;
+		this._compilation.metadata[KombaiPlugin.pluginName][filePath] = metadata;
 
 		// Mark that this loader was used
-		this._compilation[MiniCssExtractPlugin.pluginName] = true;
 	}
+	this._compilation[KombaiPlugin.pluginName] = true;
 
 	return modifiedContent;
 }

@@ -48,7 +48,7 @@ module.exports = {
 			template: './public/index.html',
 		}),
 		new KombaiPlugin({
-			outputFile: 'extracted-content.txt',
+			outputFile: 'extracted-content.json',
 		}),
 	],
 };
