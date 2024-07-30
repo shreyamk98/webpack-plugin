@@ -3,8 +3,11 @@
 	"version": "1.0.0",
 	"description": "",
 	"main": "index.js",
+	"tpye" : "module",
 	"scripts": {
-		"start": "webpack serve --open --mode development",
+
+		"transpileExtractor" : "tsc src/componentExtractor.ts --outDir plugin",
+		"start": "npm run transpileExtractor && webpack serve --open --mode development",
 		"build": "webpack --mode production"
 	},
 	"keywords": [],

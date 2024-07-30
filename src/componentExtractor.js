@@ -23,21 +23,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.withCustomConfig = withCustomConfig;
 exports.withCompilerOptions = withCompilerOptions;
 var react_docgen_typescript_1 = require("react-docgen-typescript");
-var ts = require("typescript");
-var path = require("path");
-var fs = require("fs");
+var typescript_1 = require("typescript");
+var path_1 = require("path");
+var fs_1 = require("fs");
 // this will actually be passed in
 function withCustomConfig(tsconfigPath, parserOpts) {
-    var basePath = path.dirname(tsconfigPath);
-    var _a = ts.readConfigFile(tsconfigPath, function (filename) {
-        return fs.readFileSync(filename, 'utf8');
+    var basePath = path_1.default.dirname(tsconfigPath);
+    var _a = typescript_1.default.readConfigFile(tsconfigPath, function (filename) {
+        return fs_1.default.readFileSync(filename, 'utf8');
     }), config = _a.config, error = _a.error;
     if (error !== undefined) {
         // tslint:disable-next-line: max-line-length
         var errorText = "Cannot load custom tsconfig.json from provided path: ".concat(tsconfigPath, ", with error code: ").concat(error.code, ", message: ").concat(error.messageText);
         throw new Error(errorText);
     }
-    var _b = ts.parseJsonConfigFileContent(config, ts.sys, basePath, {}, tsconfigPath), options = _b.options, errors = _b.errors;
+    var _b = typescript_1.default.parseJsonConfigFileContent(config, typescript_1.default.sys, basePath, {}, tsconfigPath), options = _b.options, errors = _b.errors;
     if (errors && errors.length) {
         if (errors[0] instanceof Error)
             throw errors[0];
@@ -65,7 +65,7 @@ function parseWithProgramProvider(filePathOrPaths, compilerOptions, parserOpts, 
         : [filePathOrPaths];
     var program = programProvider
         ? programProvider()
-        : ts.createProgram(filePaths, compilerOptions);
+        : typescript_1.default.createProgram(filePaths, compilerOptions);
     var parser = new react_docgen_typescript_1.Parser(program, parserOpts);
     var checker = program.getTypeChecker();
     return filePaths
@@ -91,10 +91,10 @@ function parseWithProgramProvider(filePathOrPaths, compilerOptions, parserOpts, 
             }
             // Then document any static sub-components
             exp.exports.forEach(function (symbol) {
-                if (symbol.flags & ts.SymbolFlags.Prototype) {
+                if (symbol.flags & typescript_1.default.SymbolFlags.Prototype) {
                     return;
                 }
-                if (symbol.flags & ts.SymbolFlags.Method) {
+                if (symbol.flags & typescript_1.default.SymbolFlags.Method) {
                     var signature = parser.getCallSignature(symbol);
                     var returnType = checker.typeToString(signature.getReturnType());
                     if (returnType !== 'Element') {
@@ -128,15 +128,15 @@ function parseWithProgramProvider(filePathOrPaths, compilerOptions, parserOpts, 
 function isReactComponent(node, typeChecker) {
     var _a, _b, _c, _d, _e, _f;
     var isJSXElement = function (node) {
-        return ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node);
+        return typescript_1.default.isJsxElement(node) || typescript_1.default.isJsxSelfClosingElement(node) || typescript_1.default.isJsxFragment(node);
     };
     // Check if it's a variable statement with a FunctionComponent type or an arrow function
-    if (ts.isVariableStatement(node)) {
+    if (typescript_1.default.isVariableStatement(node)) {
         var declarationList = node.declarationList;
         if (declarationList.flags) {
             for (var _i = 0, _g = declarationList.declarations; _i < _g.length; _i++) {
                 var declaration = _g[_i];
-                if (declaration.initializer && ts.isArrowFunction(declaration.initializer)) {
+                if (declaration.initializer && typescript_1.default.isArrowFunction(declaration.initializer)) {
                     var type = typeChecker.getTypeAtLocation(declaration.name);
                     var symbol = (_a = type.aliasSymbol) !== null && _a !== void 0 ? _a : type.symbol;
                     if ((symbol === null || symbol === void 0 ? void 0 : symbol.getName()) === 'FunctionComponent') {
@@ -147,7 +147,7 @@ function isReactComponent(node, typeChecker) {
         }
     }
     // Check if it's a function declaration
-    else if (ts.isFunctionDeclaration(node) || ts.isArrowFunction(node)) {
+    else if (typescript_1.default.isFunctionDeclaration(node) || typescript_1.default.isArrowFunction(node)) {
         var type = typeChecker.getTypeAtLocation(node);
         var callSignatures = type.getCallSignatures();
         for (var _h = 0, callSignatures_1 = callSignatures; _h < callSignatures_1.length; _h++) {
@@ -159,7 +159,7 @@ function isReactComponent(node, typeChecker) {
         }
     }
     // Check if it's a function expression assigned to a variable
-    else if (ts.isVariableDeclaration(node) && node.initializer && (ts.isFunctionExpression(node.initializer) || ts.isArrowFunction(node.initializer))) {
+    else if (typescript_1.default.isVariableDeclaration(node) && node.initializer && (typescript_1.default.isFunctionExpression(node.initializer) || typescript_1.default.isArrowFunction(node.initializer))) {
         var type = typeChecker.getTypeAtLocation(node.name);
         var callSignatures = type.getCallSignatures();
         for (var _j = 0, callSignatures_2 = callSignatures; _j < callSignatures_2.length; _j++) {
@@ -179,7 +179,7 @@ function findReactComponents(sourceFile, typeChecker) {
     function visit(node) {
         var result = isReactComponent(node, typeChecker);
         result && symbolList.push(result);
-        ts.forEachChild(node, function (sourceFile) {
+        typescript_1.default.forEachChild(node, function (sourceFile) {
             visit(sourceFile);
         });
     }

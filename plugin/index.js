@@ -32,7 +32,7 @@ class KombaiPlugin {
 			for (const [filePath, data] of Object.entries(metadata)) {
 				const componentFile = filePath;
 				const components = parser.parse(componentFile);
-				resultContent += `${JSON.stringify(components)}\n`;
+				resultContent += `${JSON.stringify(components,null, 2)}\n`;
 			}
 
 			// Write the result content to the specified output file

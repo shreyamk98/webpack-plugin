@@ -1,13 +1,13 @@
 {
-	"compilerOptions": {
-		"target": "ES6",
-		"module": "commonjs",
-		"jsx": "react",
-		"strict": true,
-		"esModuleInterop": true,
-		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true
-	},
-	"include": ["src/**/*"],
-	"exclude": ["node_modules", "dist"]
+  "compilerOptions": {
+    "target": "es6", 
+	"jsx": "react",           // Specify ECMAScript target version
+    "module": "commonjs",       // Specify module code generation
+    "outDir": "./dist",         // Redirect output structure to the directory
+    "rootDir": "./src",         // Specify the root directory of input files
+    "strict": true, 
+	"esModuleInterop": true,              // Enable all strict type-checking options
+  },
+  "include": ["src/**/*.ts"],   // Specify files to include in compilation
+  "exclude": ["node_modules"]   // Specify files to exclude in compilation
 }
