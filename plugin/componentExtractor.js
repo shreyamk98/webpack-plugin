@@ -56,7 +56,7 @@ function withCompilerOptions(compilerOptions, parserOpts) {
         },
         parseWithProgramProvider: function (filePathOrPaths, programProvider) {
             return parseWithProgramProvider(filePathOrPaths, compilerOptions, parserOpts, programProvider);
-        }
+        },
     };
 }
 function parseWithProgramProvider(filePathOrPaths, compilerOptions, parserOpts, programProvider) {
@@ -126,51 +126,50 @@ function parseWithProgramProvider(filePathOrPaths, compilerOptions, parserOpts, 
     }, []);
 }
 function isReactComponent(node, typeChecker) {
-    var _a, _b, _c, _d, _e, _f;
-    var isJSXElement = function (node) {
-        return ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node);
-    };
+    var _a, _b;
     // Check if it's a variable statement with a FunctionComponent type or an arrow function
     if (ts.isVariableStatement(node)) {
         var declarationList = node.declarationList;
         if (declarationList.flags) {
-            for (var _i = 0, _g = declarationList.declarations; _i < _g.length; _i++) {
-                var declaration = _g[_i];
-                if (declaration.initializer && ts.isArrowFunction(declaration.initializer)) {
+            for (var _i = 0, _c = declarationList.declarations; _i < _c.length; _i++) {
+                var declaration = _c[_i];
+                if (declaration.initializer &&
+                    ts.isArrowFunction(declaration.initializer)) {
                     var type = typeChecker.getTypeAtLocation(declaration.name);
                     var symbol = (_a = type.aliasSymbol) !== null && _a !== void 0 ? _a : type.symbol;
                     if ((symbol === null || symbol === void 0 ? void 0 : symbol.getName()) === 'FunctionComponent') {
-                        return (_b = type.aliasSymbol) !== null && _b !== void 0 ? _b : type.symbol;
+                        var symbol_1 = typeChecker.getSymbolAtLocation(node);
+                        return symbol_1;
                     }
                 }
             }
         }
     }
     // Check if it's a function declaration
-    else if (ts.isFunctionDeclaration(node) || ts.isArrowFunction(node)) {
+    else if (ts.isFunctionDeclaration(node)) {
         var type = typeChecker.getTypeAtLocation(node);
         var callSignatures = type.getCallSignatures();
-        for (var _h = 0, callSignatures_1 = callSignatures; _h < callSignatures_1.length; _h++) {
-            var signature = callSignatures_1[_h];
+        for (var _d = 0, callSignatures_1 = callSignatures; _d < callSignatures_1.length; _d++) {
+            var signature = callSignatures_1[_d];
             var returnType = typeChecker.getReturnTypeOfSignature(signature);
-            if (((_c = returnType.symbol) === null || _c === void 0 ? void 0 : _c.getName()) === 'Element') {
-                return (_d = type.aliasSymbol) !== null && _d !== void 0 ? _d : type.symbol;
+            if (((_b = returnType.symbol) === null || _b === void 0 ? void 0 : _b.getName()) === 'Element') {
+                // @ts-ignore
+                return node.symbol;
             }
         }
     }
     // Check if it's a function expression assigned to a variable
     else if (ts.isVariableDeclaration(node) && node.initializer && (ts.isFunctionExpression(node.initializer) || ts.isArrowFunction(node.initializer))) {
-        var type = typeChecker.getTypeAtLocation(node.name);
+        var type = typeChecker.getTypeAtLocation(node);
         var callSignatures = type.getCallSignatures();
-        for (var _j = 0, callSignatures_2 = callSignatures; _j < callSignatures_2.length; _j++) {
-            var signature = callSignatures_2[_j];
+        for (var _e = 0, callSignatures_2 = callSignatures; _e < callSignatures_2.length; _e++) {
+            var signature = callSignatures_2[_e];
             var returnType = typeChecker.getReturnTypeOfSignature(signature);
-            if (((_e = returnType.symbol) === null || _e === void 0 ? void 0 : _e.getName()) === 'Element') {
-                return (_f = type.aliasSymbol) !== null && _f !== void 0 ? _f : type.symbol;
+            if (isJsxElementType(returnType, typeChecker)) {
+                // @ts-ignore
+                return node.symbol;
             }
         }
-    }
-    else {
     }
     return false;
 }
@@ -186,3 +185,24 @@ function findReactComponents(sourceFile, typeChecker) {
     visit(sourceFile);
     return symbolList;
 }
+function isJsxElementType(type, typeChecker) {
+    if (!type)
+        return false;
+    var symbol = type.getSymbol();
+    if (symbol) {
+        var name_1 = typeChecker.symbolToString(symbol);
+        if (name_1 === 'JSX.Element' || name_1.includes('ReactElement')) {
+            return true;
+        }
+    }
+    // Check union types
+    if (type.isUnion()) {
+        return type.types.some(function (t) { return isJsxElementType(t, typeChecker); });
+    }
+    return false;
+}
+var isJSXElement = function (node) {
+    return (ts.isJsxElement(node) ||
+        ts.isJsxSelfClosingElement(node) ||
+        ts.isJsxFragment(node));
+};
