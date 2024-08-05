@@ -285,3 +285,19 @@ export function statementIsStatelessWithDefaultProps(
   }
   return false;
 }
+
+//// EXISTS IN AND COPIED FROM VS-CODE PLUGIN
+
+export async function compress(
+  str: string,
+  encoding = "gzip" as CompressionFormat,
+): Promise<ArrayBuffer> {
+  const byteArray = new TextEncoder().encode(str);
+  const cs = new CompressionStream(encoding);
+  const writer = cs.writable.getWriter();
+  const writep = writer.write(byteArray);
+  const resp = new Response(cs.readable).arrayBuffer();
+  await writep;
+  await writer.close();
+  return resp;
+}

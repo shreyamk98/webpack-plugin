@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "tpye": "module",
+  "type": "module",
   "scripts": {
     "prettier": "prettier --write 'src/**/*.{js,ts,tsx,jsx,json,css,scss,md}'",
     "transpileExtractor": "tsc src/plugin/index.ts --outDir plugin",
-    "start": "webpack serve --open --mode development",
-    "build": "webpack --mode production"
+    "webpack:serve": "env-cmd -f ./.env webpack serve --open --mode development --config src/Examples/webpack.config.babel.js",
+    "webpack:build": "webpack --mode production",
+    "vite:dev": "env-cmd -f ./.env vite --config src/Examples/vite.config.ts",
+    "vite:build": "env-cmd -f ./.env vite build  --config src/Examples/vite.config.ts"
   },
   "keywords": [],
   "author": "",
@@ -17,11 +19,13 @@
     "@babel/core": "^7.24.9",
     "@babel/preset-env": "^7.25.0",
     "@babel/preset-react": "^7.24.7",
+    "@types/debug": "^4.1.12",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "babel-loader": "^9.1.3",
     "html-webpack-plugin": "^5.6.0",
     "prettier": "^3.3.3",
+    "rollup-plugin-tsconfig-paths": "^1.5.2",
     "ts-loader": "^9.5.1",
     "typescript": "^5.5.4",
     "webpack": "^5.93.0",
@@ -29,11 +33,21 @@
     "webpack-dev-server": "^5.0.4"
   },
   "dependencies": {
+    "@rollup/plugin-alias": "^5.1.0",
     "@types/node": "^22.0.0",
     "@types/webpack": "^5.28.5",
+    "@vitejs/plugin-react": "^4.3.1",
+    "babel-register": "^6.26.0",
+    "debug": "^4.3.6",
+    "dotenv": "^16.4.5",
+    "env-cmd": "^10.1.0",
+    "fast-glob": "^3.3.2",
+    "http": "^0.0.1-security",
     "loader-utils": "^3.3.1",
     "react": "^18.3.1",
+    "react-docgen": "^7.0.3",
     "react-docgen-typescript": "^2.2.2",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "vite": "^5.3.5"
   }
 }

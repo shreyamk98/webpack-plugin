@@ -1,12 +1,9 @@
 import * as ts from "typescript";
 import {
-  Component,
   ComponentDoc,
   ComponentNameResolver,
   defaultJSDoc,
   JSDoc,
-  Method,
-  MethodParameter,
   ParserOptions,
   PropItemType,
   Props,
@@ -22,7 +19,9 @@ import {
   statementIsClassDeclaration,
   statementIsStatelessWithDefaultProps,
 } from "./helpers";
+import { getScoppedLogger } from "../../logger";
 
+const parserLogger = getScoppedLogger("parser");
 export class Parser {
   private readonly checker: ts.TypeChecker;
   //parserOptions TODO removed PropFilter Not Need for
@@ -62,11 +61,6 @@ export class Parser {
     const declaration = exp.valueDeclaration || exp.declarations![0];
     const type = this.checker.getTypeOfSymbolAtLocation(exp, declaration);
     const typeSymbol = type.symbol || type.aliasSymbol;
-
-    if (!typeSymbol) {
-      return exp;
-    }
-
     const symbolName = typeSymbol.getName();
 
     if (
@@ -97,11 +91,9 @@ export class Parser {
     if (!!exp.declarations && exp.declarations.length === 0) {
       return null;
     }
-
     let rootExp = this.getComponentFromExpression(exp);
     const declaration = rootExp.valueDeclaration || rootExp.declarations![0];
     const type = this.checker.getTypeOfSymbolAtLocation(rootExp, declaration);
-
     let commentSource = rootExp;
     const typeSymbol = type.symbol || type.aliasSymbol;
     const originalName = rootExp.getName();
@@ -135,7 +127,9 @@ export class Parser {
 
         if (supportedComponentTypes.indexOf(expName) !== -1) {
           commentSource = this.checker.getAliasedSymbol(commentSource);
+          parserLogger.warn(`No component type found for ${originalName}.`);
         } else {
+          parserLogger.verbose(`${originalName} type: ${expName}`);
           commentSource = rootExp;
         }
       }
@@ -167,29 +161,35 @@ export class Parser {
       resolvedComponentName ||
       tags.visibleName ||
       computeComponentName(nameSource, source, customComponentTypes);
-    const methods = this.getMethodsInfo(type);
+    // Not being used currently
+    // const methods = this.getMethodsInfo(type);
 
     let result: ComponentDoc | null = null;
     if (propsType) {
       if (!commentSource.valueDeclaration) {
+        parserLogger.warn("Invalid component source for Node: %s", displayName);
         return null;
       }
       const defaultProps = this.extractDefaultPropsFromComponent(
         commentSource,
         commentSource.valueDeclaration.getSourceFile(),
       );
+      parserLogger.verbose(
+        "Extracted defaultProps: %O for %s",
+        defaultProps,
+        displayName,
+      );
       const props = this.getPropsInfo(propsType, defaultProps);
-
       for (const propName of Object.keys(props)) {
         const prop = props[propName];
-        const component: Component = { name: displayName };
+        parserLogger.verbose('Following prop found: "%O"', prop);
       }
       result = {
         tags,
         filePath,
         description,
         displayName,
-        methods,
+        // methods,
         props,
       };
     } else if (description && displayName) {
@@ -198,11 +198,10 @@ export class Parser {
         filePath,
         description,
         displayName,
-        methods,
+        // methods,
         props: {},
       };
     }
-
     if (result !== null && this.shouldIncludeExpression) {
       result.expression = rootExp;
       result.rootExpression = exp;
@@ -281,90 +280,6 @@ export class Parser {
 
     return methodSymbols;
   }
-
-  public getMethodsInfo(type: ts.Type): Method[] {
-    const members = this.extractMembersFromType(type);
-    const methods: Method[] = [];
-    members.forEach((member) => {
-      if (!this.isTaggedPublic(member)) {
-        return;
-      }
-
-      const name = member.getName();
-      const docblock = this.getFullJsDocComment(member).fullComment;
-      const callSignature = this.getCallSignature(member);
-      const params = this.getParameterInfo(callSignature);
-      const description = ts.displayPartsToString(
-        member.getDocumentationComment(this.checker),
-      );
-      const returnType = this.checker.typeToString(
-        callSignature.getReturnType(),
-      );
-      const returnDescription = ts.displayPartsToString(
-        this.getReturnDescription(member),
-      );
-      const modifiers = this.getModifiers(member);
-
-      methods.push({
-        description,
-        docblock,
-        modifiers,
-        name,
-        params,
-        returns: returnDescription
-          ? {
-              description: returnDescription,
-              type: returnType,
-            }
-          : null,
-      });
-    });
-
-    return methods;
-  }
-
-  public getModifiers(member: ts.Symbol) {
-    const modifiers: string[] = [];
-    if (!member.valueDeclaration) {
-      return modifiers;
-    }
-
-    const flags = ts.getCombinedModifierFlags(member.valueDeclaration);
-    const isStatic = (flags & ts.ModifierFlags.Static) !== 0; // tslint:disable-line no-bitwise
-
-    if (isStatic) {
-      modifiers.push("static");
-    }
-
-    return modifiers;
-  }
-
-  public getParameterInfo(callSignature: ts.Signature): MethodParameter[] {
-    return callSignature.parameters.map((param) => {
-      const paramType = this.checker.getTypeOfSymbolAtLocation(
-        param,
-        param.valueDeclaration!,
-      );
-      const paramDeclaration = this.checker.symbolToParameterDeclaration(
-        param,
-        undefined,
-        undefined,
-      );
-      const isOptionalParam: boolean = !!(
-        paramDeclaration && paramDeclaration.questionToken
-      );
-
-      return {
-        description:
-          ts.displayPartsToString(
-            param.getDocumentationComment(this.checker),
-          ) || null,
-        name: param.getName() + (isOptionalParam ? "?" : ""),
-        type: { name: this.checker.typeToString(paramType) },
-      };
-    });
-  }
-
   public getCallSignature(symbol: ts.Symbol) {
     const symbolType = this.checker.getTypeOfSymbolAtLocation(
       symbol,
@@ -373,97 +288,6 @@ export class Parser {
 
     return symbolType.getCallSignatures()[0];
   }
-
-  public isTaggedPublic(symbol: ts.Symbol) {
-    const jsDocTags = symbol.getJsDocTags();
-    return Boolean(jsDocTags.find((tag) => tag.name === "public"));
-  }
-
-  public getReturnDescription(
-    symbol: ts.Symbol,
-  ): ts.SymbolDisplayPart[] | undefined {
-    const tags = symbol.getJsDocTags();
-    const returnTag = tags.find((tag) => tag.name === "returns");
-    if (!returnTag || !Array.isArray(returnTag.text)) {
-      return;
-    }
-
-    return returnTag.text;
-  }
-
-  private getValuesFromUnionType(type: ts.Type): string | number {
-    if (type.isStringLiteral()) return `"${type.value}"`;
-    if (type.isNumberLiteral()) return `${type.value}`;
-    return this.checker.typeToString(type);
-  }
-
-  private getInfoFromUnionType(type: ts.Type): {
-    value: string | number;
-  } & Partial<JSDoc> {
-    let commentInfo = {};
-    if (type.getSymbol()) {
-      commentInfo = { ...this.getFullJsDocComment(type.getSymbol()!) };
-    }
-    return {
-      value: this.getValuesFromUnionType(type),
-      ...commentInfo,
-    };
-  }
-
-  public getDocgenType(propType: ts.Type, isRequired: boolean): PropItemType {
-    // When we are going to process the type, we check if this type has a constraint (is a generic type with constraint)
-    if (propType.getConstraint()) {
-      // If so, we assing the property the type that is the constraint
-      propType = propType.getConstraint()!;
-    }
-
-    let propTypeString = this.checker.typeToString(propType);
-    if (this.shouldRemoveUndefinedFromOptional && !isRequired) {
-      propTypeString = propTypeString.replace(" | undefined", "");
-    }
-
-    if (propType.isUnion()) {
-      if (
-        this.shouldExtractValuesFromUnion ||
-        (this.shouldExtractLiteralValuesFromEnum &&
-          propType.types.every(
-            (type) =>
-              type.getFlags() &
-              (ts.TypeFlags.StringLiteral |
-                ts.TypeFlags.NumberLiteral |
-                ts.TypeFlags.EnumLiteral |
-                ts.TypeFlags.Undefined),
-          ))
-      ) {
-        let value = propType.types.map((type) =>
-          this.getInfoFromUnionType(type),
-        );
-
-        if (this.shouldRemoveUndefinedFromOptional && !isRequired) {
-          value = value.filter((option) => option.value != "undefined");
-        }
-
-        if (this.shouldSortUnions) {
-          value.sort((a, b) =>
-            a.value.toString().localeCompare(b.value.toString()),
-          );
-        }
-
-        return {
-          name: "enum",
-          raw: propTypeString,
-          value,
-        };
-      }
-    }
-
-    if (this.shouldRemoveUndefinedFromOptional && !isRequired) {
-      propTypeString = propTypeString.replace(" | undefined", "");
-    }
-
-    return { name: propTypeString };
-  }
-
   public getPropsInfo(
     propsObj: ts.Symbol,
     defaultProps: StringIndexedObject<string> = {},
@@ -563,6 +387,78 @@ export class Parser {
     });
 
     return result;
+  }
+
+  private getInfoFromUnionType(type: ts.Type): {
+    value: string | number;
+  } & Partial<JSDoc> {
+    let commentInfo = {};
+    if (type.getSymbol()) {
+      commentInfo = { ...this.getFullJsDocComment(type.getSymbol()!) };
+    }
+    return {
+      value: this.getValuesFromUnionType(type),
+      ...commentInfo,
+    };
+  }
+  private getValuesFromUnionType(type: ts.Type): string | number {
+    if (type.isStringLiteral()) return `"${type.value}"`;
+    if (type.isNumberLiteral()) return `${type.value}`;
+    return this.checker.typeToString(type);
+  }
+
+  public getDocgenType(propType: ts.Type, isRequired: boolean): PropItemType {
+    // When we are going to process the type, we check if this type has a constraint (is a generic type with constraint)
+    if (propType.getConstraint()) {
+      // If so, we assing the property the type that is the constraint
+      propType = propType.getConstraint()!;
+    }
+
+    let propTypeString = this.checker.typeToString(propType);
+    if (this.shouldRemoveUndefinedFromOptional && !isRequired) {
+      propTypeString = propTypeString.replace(" | undefined", "");
+    }
+
+    if (propType.isUnion()) {
+      if (
+        this.shouldExtractValuesFromUnion ||
+        (this.shouldExtractLiteralValuesFromEnum &&
+          propType.types.every(
+            (type) =>
+              type.getFlags() &
+              (ts.TypeFlags.StringLiteral |
+                ts.TypeFlags.NumberLiteral |
+                ts.TypeFlags.EnumLiteral |
+                ts.TypeFlags.Undefined),
+          ))
+      ) {
+        let value = propType.types.map((type) =>
+          this.getInfoFromUnionType(type),
+        );
+
+        if (this.shouldRemoveUndefinedFromOptional && !isRequired) {
+          value = value.filter((option) => option.value != "undefined");
+        }
+
+        if (this.shouldSortUnions) {
+          value.sort((a, b) =>
+            a.value.toString().localeCompare(b.value.toString()),
+          );
+        }
+
+        return {
+          name: "enum",
+          raw: propTypeString,
+          value,
+        };
+      }
+    }
+
+    if (this.shouldRemoveUndefinedFromOptional && !isRequired) {
+      propTypeString = propTypeString.replace(" | undefined", "");
+    }
+
+    return { name: propTypeString };
   }
 
   public findDocComment(symbol: ts.Symbol): JSDoc {
@@ -943,3 +839,106 @@ export class Parser {
     );
   }
 }
+
+//not being used all related to finding methods of class
+// public getMethodsInfo(type: ts.Type): Method[] {
+//   const members = this.extractMembersFromType(type);
+//   const methods: Method[] = [];
+//   members.forEach((member) => {
+//     if (!this.isTaggedPublic(member)) {
+//       return;
+//     }
+
+//     const name = member.getName();
+//     const docblock = this.getFullJsDocComment(member).fullComment;
+//     const callSignature = this.getCallSignature(member);
+//     const params = this.getParameterInfo(callSignature);
+//     const description = ts.displayPartsToString(
+//       member.getDocumentationComment(this.checker),
+//     );
+//     const returnType = this.checker.typeToString(
+//       callSignature.getReturnType(),
+//     );
+//     const returnDescription = ts.displayPartsToString(
+//       this.getReturnDescription(member),
+//     );
+//     const modifiers = this.getModifiers(member);
+
+//     methods.push({
+//       description,
+//       docblock,
+//       modifiers,
+//       name,
+//       params,
+//       returns: returnDescription
+//         ? {
+//             description: returnDescription,
+//             type: returnType,
+//           }
+//         : null,
+//     });
+//   });
+
+//   return methods;
+// }
+// //not being used methods
+// public getModifiers(member: ts.Symbol) {
+//   const modifiers: string[] = [];
+//   if (!member.valueDeclaration) {
+//     return modifiers;
+//   }
+
+//   const flags = ts.getCombinedModifierFlags(member.valueDeclaration);
+//   const isStatic = (flags & ts.ModifierFlags.Static) !== 0; // tslint:disable-line no-bitwise
+
+//   if (isStatic) {
+//     modifiers.push("static");
+//   }
+
+//   return modifiers;
+// }
+// //not being used methods
+// public getParameterInfo(callSignature: ts.Signature): MethodParameter[] {
+//   return callSignature.parameters.map((param) => {
+//     const paramType = this.checker.getTypeOfSymbolAtLocation(
+//       param,
+//       param.valueDeclaration!,
+//     );
+//     const paramDeclaration = this.checker.symbolToParameterDeclaration(
+//       param,
+//       undefined,
+//       undefined,
+//     );
+//     const isOptionalParam: boolean = !!(
+//       paramDeclaration && paramDeclaration.questionToken
+//     );
+
+//     return {
+//       description:
+//         ts.displayPartsToString(
+//           param.getDocumentationComment(this.checker),
+//         ) || null,
+//       name: param.getName() + (isOptionalParam ? "?" : ""),
+//       type: { name: this.checker.typeToString(paramType) },
+//     };
+//   });
+// }
+// //not being used methods
+// public isTaggedPublic(symbol: ts.Symbol) {
+//   const jsDocTags = symbol.getJsDocTags();
+//   return Boolean(jsDocTags.find((tag) => tag.name === "public"));
+// }
+// //not being used methods
+// public getReturnDescription(
+//   symbol: ts.Symbol,
+// ): ts.SymbolDisplayPart[] | undefined {
+//   const tags = symbol.getJsDocTags();
+//   const returnTag = tags.find((tag) => tag.name === "returns");
+//   if (!returnTag || !Array.isArray(returnTag.text)) {
+//     return;
+//   }
+
+//   return returnTag.text;
+// }
+// //not being used methods
+//

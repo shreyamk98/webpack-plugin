@@ -1,5 +1,11 @@
 import * as ts from "typescript";
 
+export enum LogLevel {
+  INFO = "info",
+  WARN = "warn",
+  ERROR = "error",
+}
+
 export type PropFilter = (props: PropItem, component: Component) => boolean;
 
 export type InterfaceOrTypeAliasDeclaration =
@@ -75,7 +81,7 @@ export interface ComponentDoc {
   filePath: string;
   description: string;
   props: Props;
-  methods: Method[];
+  // methods: Method[];
   tags?: StringIndexedObject<string>;
 }
 
@@ -146,8 +152,4 @@ export function buildFilter(opts: ParserOptions): PropFilter {
 
 export interface FileParser {
   parse(filePathOrPaths: string | string[]): ComponentDoc[];
-  parseWithProgramProvider(
-    filePathOrPaths: string | string[],
-    programProvider?: () => ts.Program,
-  ): ComponentDoc[];
 }
